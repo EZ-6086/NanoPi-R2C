@@ -62,10 +62,11 @@ jobs:
         git config --global user.name "GitHub"
         git clone $REPO_URL -b $REPO_BRANCH openwrt
         cd openwrt
-        rm -rf target/linux/rockchip
-        svn co https://github.com/immortalwrt/immortalwrt/target/linux/rockchip
+        rm -rf /tree/master/target/linux/rockchip
+        svn co https://github.com/immortalwrt/immortalwrt/tree/master/target/linux/rockchip
         rm -rf package/boot
-        svn co https://github.com/immortalwrt/immortalwrt/package/boot package/boot
+        svn co https://github.com/immortalwrt/immortalwrt/tree/master/package/boot package/boot
+      
     - name: Update Feeds
       id: update
       run: |
