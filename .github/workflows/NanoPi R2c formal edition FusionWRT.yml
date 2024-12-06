@@ -62,8 +62,9 @@ jobs:
     - name: Clone Source Code
       run: |
         df -hT $PWD
-        git config --global user.email "git@github.com"
-        git config --global user.name "GitHub"
+                df -hT $PWD
+        # git config --global user.email "git@github.com"
+        # git config --global user.name "GitHub"
         git clone $REPO_URL -b $REPO_BRANCH openwrt
         cd openwrt
         # rm -rf target/linux/rockchip
@@ -85,15 +86,15 @@ jobs:
         chmod +x ../scripts/*.sh
         ../scripts/hook-feeds.sh
     
-    - name: MOD index file
-      run: |
-         cd $OPENWRTROOT/package/lean/autocore/files/arm
-         sed -i '/Load Average/i\\t\t<tr><td width="33%"><%:Telegram %></td><td><a href="https://t.me/DHDAXCW"><%:电报交流群%></a></td></tr>' index.htm
+    # - name: MOD index file
+    #   run: |
+    #      cd $OPENWRTROOT/package/lean/autocore/files/arm
+    #      sed -i '/Load Average/i\\t\t<tr><td width="33%"><%:Telegram %></td><td><a href="https://t.me/DHDAXCW"><%:电报交流群%></a></td></tr>' index.htm
          
-    - name: Modify SmartDNS
-      run: |
-         cd $OPENWRTROOT
-         find package/*/ feeds/*/ -maxdepth 6 -path "*luci-app-smartdns/luasrc/controller/smartdns.lua" | xargs -i sed -i 's/\"SmartDNS\")\, 4/\"SmartDNS\")\, 3/g' {}
+    # - name: Modify SmartDNS
+    #   run: |
+    #      cd $OPENWRTROOT
+    #      find package/*/ feeds/*/ -maxdepth 6 -path "*luci-app-smartdns/luasrc/controller/smartdns.lua" | xargs -i sed -i 's/\"SmartDNS\")\, 4/\"SmartDNS\")\, 3/g' {}
          
     - name: Install Feeds
       run: |
@@ -110,19 +111,34 @@ jobs:
         # ../scripts/preset-clash-core.sh armv8
         ../scripts/preset-clash-core.sh arm64
         ../scripts/preset-terminal-tools.sh
+        echo '
+        CONFIG_TARGET_ROOTFS_PARTSIZE=2048
+        CONFIG_DOCKER_CGROUP_OPTIONS=y
+        CONFIG_DOCKER_NET_ENCRYPT=y
+        CONFIG_DOCKER_NET_MACVLAN=y
+        CONFIG_DOCKER_NET_OVERLAY=y
+        CONFIG_DOCKER_NET_TFTP=y
+        CONFIG_DOCKER_OPTIONAL_FEATURES=y
+        CONFIG_DOCKER_STO_BTRFS=y
+        CONFIG_DOCKER_STO_EXT4=y
+        CONFIG_PACKAGE_luci-app-dockerman=y
+        CONFIG_PACKAGE_luci-lib-docker=y
+        ' >> .config
+        make defconfig
         
         
     - name: Download Package
       id: package
       run: |
         cd $OPENWRTROOT
-        if "$KMODS_IN_FIRMWARE" = 'true'
-        then
-            echo "CONFIG_ALL_NONSHARED=y" >> .config
-        fi
-        make defconfig
-        ../scripts/modify_config.sh
+        # if "$KMODS_IN_FIRMWARE" = 'true'
+        # then
+        #     echo "CONFIG_ALL_NONSHARED=y" >> .config
+        # fi
+        # make defconfig
+        # ../scripts/modify_config.sh
         cat .config
+        make download -j50
         make download -j8
         find dl -size -1024c -exec ls -l {} \;
         find dl -size -1024c -exec rm -f {} \;
@@ -153,6 +169,7 @@ jobs:
         echo "FIRMWARE=$PWD" >> $GITHUB_ENV
         echo "::set-output name=FIRMWARE::$(echo $PWD)"
         echo "::set-output name=COMPILE_STATUS::success"
+        
     - name: Generate Firmware
       if: steps.compile.outputs.COMPILE_STATUS == 'success'
       id: generate
@@ -165,18 +182,19 @@ jobs:
         mkdir -p files/etc/uci-defaults/
         cp ../scripts/init-settings.sh files/etc/uci-defaults/99-init-settings
         mkdir -p files/etc/opkg
-        cp ../configs/opkg/distfeeds-packages-server.conf files/etc/opkg/distfeeds.conf.server
-        mkdir -p files/etc/opkg/keys
-        cp ../configs/opkg/1035ac73cc4e59e3 files/etc/opkg/keys/1035ac73cc4e59e3
-        if "$KMODS_IN_FIRMWARE" = 'true'
-        then
-            mkdir -p files/www/snapshots
-            cp -r bin/targets files/www/snapshots
-            cp ../configs/opkg/distfeeds-18.06-local.conf files/etc/opkg/distfeeds.conf
-        else
-            cp ../configs/opkg/distfeeds-18.06-remote.conf files/etc/opkg/distfeeds.conf
-        fi
-        cp files/etc/opkg/distfeeds.conf.server files/etc/opkg/distfeeds.conf.mirror
+        # cp ../configs/opkg/distfeeds-packages-server.conf files/etc/opkg/distfeeds.conf.server
+        cp ../configs/opkg/distfeeds-packages-server.conf files/etc/opkg/distfeeds.conf.mirror
+        # mkdir -p files/etc/opkg/keys
+        # cp ../configs/opkg/1035ac73cc4e59e3 files/etc/opkg/keys/1035ac73cc4e59e3
+        # if "$KMODS_IN_FIRMWARE" = 'true'
+        # then
+        #     mkdir -p files/www/snapshots
+        #     cp -r bin/targets files/www/snapshots
+        #     cp ../configs/opkg/distfeeds-18.06-local.conf files/etc/opkg/distfeeds.conf
+        # else
+        #     cp ../configs/opkg/distfeeds-18.06-remote.conf files/etc/opkg/distfeeds.conf
+        # fi
+        # cp files/etc/opkg/distfeeds.conf.server files/etc/opkg/distfeeds.conf.mirror        
         sed -i "s/http:\/\/192.168.123.100:2345\/snapshots/https:\/\/openwrt.cc\/snapshots\/$(date +"%Y-%m-%d")\/lean/g" files/etc/opkg/distfeeds.conf.mirror
         if "$IPV6MOD_IN_FIRMWARE" = 'true'
         then
@@ -189,8 +207,14 @@ jobs:
         fi
         make package/install -j$(nproc) || make package/install -j1 V=s
         make target/install -j$(nproc) || make target/install -j1 V=s
+        pushd bin/targets/rockchip/armv8
+        rm -rf *ext4* *.manifest packages *.json *.buildinfo
+        mv openwrt-rockchip-armv8-friendlyarm_nanopi-r2c-squashfs-sysupgrade.img.gz $(date +"%Y.%m.%d")-docker-openwrt-friendlyarm_nanopi-r2c-squashfs-sysupgrade.img.gz
+        popd
         make checksum
+        mv bin/targets/rockchip/armv8/sha256sums bin/targets/rockchip/armv8/docker-sha256sums
         echo "::set-output name=GENERATE_STATUS::success"
+        
     - name: Upload Bin Folder
       uses: actions/upload-artifact@main
       if: steps.generate.outputs.GENERATE_STATUS == 'success'
@@ -231,6 +255,7 @@ jobs:
           mv server packages-server
           zip -qrm packages-server.zip packages-server
           mv packages-server.zip $OPENWRTROOT/bin/targets/$TARGET/$SUBTARGET
+          
       - name: Organize Files
         id: organize
         if: env.GENERATE_STATUS == 'success'
@@ -241,6 +266,7 @@ jobs:
           curl -fsSL git.io/file-transfer | sh
           df -hT $PWD
           echo "::set-output name=ORGANIZE_STATUS::success"
+          
       - name: Upload Firmware To WeTransfer
         id: wetransfer
         if: steps.organize.outputs.ORGANIZE_STATUS == 'success' && env.UPLOAD_WETRANSFER == 'true'
@@ -249,6 +275,7 @@ jobs:
           ./transfer wet -s -p 16 --no-progress ${FIRMWARE} 2>&1 | tee wetransfer.log
           echo "::warning file=Firmware-Wetransfer.com::$(cat wetransfer.log | grep https)"
           echo "::set-output name=url::$(cat wetransfer.log | grep https | cut -f3 -d" ")"
+          
       - name: Upload Firmware To CowTransfer
         id: cowtransfer
         if: steps.organize.outputs.ORGANIZE_STATUS == 'success' && env.UPLOAD_COWTRANSFER == 'true'
@@ -257,6 +284,7 @@ jobs:
           ./transfer cow --block 2621440 -s -p 64 --no-progress ${FIRMWARE} 2>&1 | tee cowtransfer.log
           echo "::warning file=Firmware-Cowtransfer.com::$(cat cowtransfer.log | grep https)"
           echo "::set-output name=url::$(cat cowtransfer.log | grep https | cut -f3 -d" ")"
+          
       - name: Generate release tag
         id: tag
         if: env.UPLOAD_RELEASE == 'true' && !cancelled()
