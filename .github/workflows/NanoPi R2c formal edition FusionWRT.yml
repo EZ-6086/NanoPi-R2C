@@ -58,6 +58,7 @@ jobs:
         sudo -E apt-get -qq autoremove --purge
         sudo -E apt-get -qq clean
         sudo timedatectl set-timezone "$TZ"
+        
     - name: Clone Source Code
       run: |
         df -hT $PWD
@@ -71,6 +72,7 @@ jobs:
         # rm -rf package/boot
         # svn co https://github.com/immortalwrt/immortalwrt/branches/master/package/boot package/boot
         # svn co https://github.com/immortalwrt/immortalwrt/tree/master/package/boot package/boot      
+        
     - name: Update Feeds
       id: update
       run: |
@@ -87,6 +89,7 @@ jobs:
       run: |
          cd $OPENWRTROOT/package/lean/autocore/files/arm
          sed -i '/Load Average/i\\t\t<tr><td width="33%"><%:Telegram %></td><td><a href="https://t.me/DHDAXCW"><%:电报交流群%></a></td></tr>' index.htm
+         
     - name: Modify SmartDNS
       run: |
          cd $OPENWRTROOT
@@ -96,6 +99,7 @@ jobs:
       run: |
         cd $OPENWRTROOT
         ./scripts/feeds install -a
+        
     - name: Load Custom Configuration
       run: |
         [ -e files ] && mv files $OPENWRTROOT/files
@@ -103,8 +107,11 @@ jobs:
         chmod +x scripts/*.sh
         cd $OPENWRTROOT
         ../$DIY_SH
-        ../scripts/preset-clash-core.sh armv8
+        # ../scripts/preset-clash-core.sh armv8
+        ../scripts/preset-clash-core.sh arm64
         ../scripts/preset-terminal-tools.sh
+        
+        
     - name: Download Package
       id: package
       run: |
