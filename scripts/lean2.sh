@@ -64,6 +64,12 @@ export date_version=$(date -d "$(rdate -n -4 -p ntp.aliyun.com)" +'%Y-%m-%d')
 sed -i "s/${orig_version}/${orig_version} (${date_version})/g" zzz-default-settings
 popd
 
+rm -rf nas-packages-luci/luci/luci-app-istorex
+rm -rf feeds/packages/lang/golang
+git clone https://github.com/sbwml/packages_lang_golang -b 23.x feeds/packages/lang/golang
+rm -rf package/feeds/packages/apk
+rm -rf package/feeds/packages/adguardhome
+
 # Change default shell to zsh
 sed -i 's/\/bin\/ash/\/usr\/bin\/zsh/g' package/base-files/files/etc/passwd
 
@@ -71,7 +77,7 @@ sed -i 's/\/bin\/ash/\/usr\/bin\/zsh/g' package/base-files/files/etc/passwd
 sed -i 's/192.168.1.1/192.168.11.1/g' package/base-files/files/bin/config_generate
 
 # iStore
-echo >> feeds.conf.default
-echo 'src-git istore https://github.com/linkease/istore;main' >> feeds.conf.default
-./scripts/feeds update istore
-./scripts/feeds install -d y -p istore luci-app-store
+# echo >> feeds.conf.default
+# echo 'src-git istore https://github.com/linkease/istore;main' >> feeds.conf.default
+# ./scripts/feeds update istore
+# ./scripts/feeds install -d y -p istore luci-app-store
